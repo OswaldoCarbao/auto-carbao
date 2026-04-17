@@ -1,23 +1,23 @@
-# 1. Usamos la imagen de n8n (que ya trae Node.js incluido)
+# 1. Usamos la imagen de n8n (que ya tiene Node.js y todo lo básico)
 FROM n8nio/n8n:latest
 
 USER root
 
-# 2. Instalamos herramientas necesarias para procesar archivos de WhatsApp
-RUN apt-get update && apt-get install -y ffmpeg libvips-dev && apt-get clean
+# 2. Saltamos la instalación de herramientas de sistema para evitar errores de compatibilidad
+# n8n ya viene preparado para lo básico.
 
-# 3. Creamos la carpeta para el sistema de CARBAO
+# 3. Carpeta de trabajo
 WORKDIR /home/node/app
 
-# 4. Copiamos tus archivos (index_receptor.js, package.json)
+# 4. Copiamos tus archivos de CARBAO
 COPY . .
 
-# 5. Instalamos las librerías de tu receptor
+# 5. Instalamos solo las librerías de tu receptor (Baileys, Axios, etc.)
 RUN npm install
 
-# 6. Configuramos el puerto que pide Render
+# 6. Puerto de Render
 ENV N8N_PORT=10000
 EXPOSE 10000
 
-# 7. Ejecutamos n8n y tu script al mismo tiempo
+# 7. Arrancamos n8n y tu script
 CMD ["sh", "-c", "n8n & node index_receptor.js"]
