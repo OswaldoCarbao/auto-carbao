@@ -12,7 +12,7 @@ WORKDIR /home/node/app
 # --- 1. CONFIGURACIÓN DE BASE DE DATOS (SUPABASE) ---
 # Esto evita que n8n pierda la memoria cada vez que Render se reinicia
 ENV DB_TYPE=postgresdb
-ENV DB_POSTGRESDB_HOST=db.xldrtgtwonecxlfxcrat.supabase.co
+ENV DB_POSTGRESDB_HOST=aws-0-sa-east-1.pooler.supabase.com
 ENV DB_POSTGRESDB_PORT=5432
 ENV DB_POSTGRESDB_DATABASE=postgres
 ENV DB_POSTGRESDB_USER=postgres
