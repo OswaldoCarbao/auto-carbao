@@ -1,6 +1,7 @@
-FROM node:18-alpine
+# Cambiamos a la versión 20 que es la que pide Baileys
+FROM node:20-alpine
 
-# Instalamos GIT y dependencias de sistema necesarias
+# Instalamos GIT (necesario para bajar Baileys)
 RUN apk add --no-cache git
 
 # Instalamos n8n globalmente
@@ -11,7 +12,7 @@ WORKDIR /home/node/app
 # Copiamos archivos de dependencias
 COPY package*.json ./
 
-# Instalamos las dependencias del proyecto
+# Instalamos las dependencias (ahora sí pasará el check de versión)
 RUN npm install --omit=dev
 
 # Copiamos el resto de archivos
