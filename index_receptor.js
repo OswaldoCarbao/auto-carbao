@@ -1,5 +1,10 @@
 const { exec } = require('child_process');
-exec('n8n');
+// Esto arranca n8n en segundo plano para que tú puedas usar la interfaz
+exec('n8n', (err) => {
+    if (err) console.error('Error al arrancar n8n:', err);
+});
+
+console.log('🚀 [RECEPTOR CARBAO] Iniciando sistema...');
 import makeWASocket, { 
     useMultiFileAuthState, 
     downloadContentFromMessage, 
