@@ -1,19 +1,19 @@
 FROM n8nio/n8n:latest
 
+# Cambiamos a root solo para asegurar permisos de carpeta
 USER root
 WORKDIR /home/node/app
 
-# Usamos apt-get porque n8n corre sobre Debian, no Alpine
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Copiamos solo los archivos necesarios
+COPY package*.json ./
+COPY index_receptor.js ./
 
-COPY . .
+# Instalación limpia
+RUN npm install --production
 
-# Instalamos las librerías de Node
-RUN npm install
-
-# Puerto para Render
+# Puerto de Render
 ENV N8N_PORT=10000
 EXPOSE 10000
 
-# Comando directo para arrancar tu receptor
+# Ejecutamos con node directamente
 CMD ["node", "index_receptor.js"]
