@@ -20,36 +20,46 @@ const proxy = httpProxy.createProxyServer({});
 const port = process.env.PORT || 10000;
 let ultimoQR = "";
 
-// EL PUENTE MAESTRO CORREGIDO
+// EL PUENTE MAESTRO REFORZADO (Para evitar el Cannot GET)
 app.all('/n8n*', (req, res) => {
-    // 1. Quitamos /n8n de la ruta para que n8n interno lo entienda
-    let newUrl = req.url.replace('/n8n', '');
+    // 1. Limpiamos la URL para el n8n interno (quitamos el prefijo /n8n)
+    let newUrl = req.url.replace(/^\/n8n/, '');
     if (newUrl === '') newUrl = '/';
     req.url = newUrl;
 
-    // 2. Redirigimos al puerto 10001
+    // 2. Redirigimos al puerto 10001 con changeOrigin habilitado
     proxy.web(req, res, { 
         target: 'http://localhost:10001',
-        changeOrigin: true
+        changeOrigin: true,
+        ws: true // Habilita WebSockets para evitar que salga "Offline"
     }, (e) => {
         console.error("Proxy error:", e.message);
-        res.status(502).send("n8n está iniciando... recarga en 15 segundos.");
+        res.status(502).send("El motor de n8n está despertando... recarga en 10 segundos.");
     });
 });
 
-app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀 - Ve a /n8n/ para configurar'));
+app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀 - Ve a /n8n/ para configurar o /qr para vincular WhatsApp'));
 
 // RUTA PARA EL QR
 app.get('/qr', async (req, res) => {
     if (!ultimoQR) {
-        return res.send(`<body><h2>Esperando QR...</h2><script>setTimeout(()=>location.reload(),5000)</script></body>`);
+        return res.send(`
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+                <h2>Esperando que WhatsApp genere el código...</h2>
+                <p>Si ya escaneaste, el sistema de Carbao ya está activo.</p>
+                <script>setTimeout(()=>location.reload(),5000)</script>
+            </body>
+        `);
     }
     try {
         const qrImage = await QRCodeImage.toDataURL(ultimoQR);
         res.send(`
-            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;font-family:sans-serif;">
-                <h2>Vincular WhatsApp CARBAO</h2>
-                <img src="${qrImage}" style="width:300px; border:10px solid white; border-radius:10px;">
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;font-family:sans-serif;text-align:center;">
+                <div style="background:white;padding:40px;border-radius:20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);">
+                    <h2 style="color:#1a73e8;">Vincular WhatsApp CARBAO</h2>
+                    <img src="${qrImage}" style="width:300px; border:5px solid #eee; border-radius:10px;">
+                    <p style="margin-top:20px;color:#666;">Abre WhatsApp > Dispositivos vinculados > Vincular.</p>
+                </div>
                 <script>setTimeout(() => location.reload(), 20000);</script>
             </body>
         `);
@@ -63,41 +73,51 @@ app.listen(port, '0.0.0.0', () => {
 
 // --- 2. LÓGICA DE ARRANQUE ---
 function iniciarTodo() {
-    console.log("🚀 Iniciando n8n...");
-    // n8n start hereda las variables del Dockerfile
+    console.log("🚀 Iniciando n8n en segundo plano...");
     exec('n8n start', (err, stdout, stderr) => {
-        if (err) console.error(`Error n8n: ${err}`);
+        if (err) console.error(`Error crítico n8n: ${err}`);
     });
     startReceptor();
 }
 
-// --- 3. WHATSAPP ---
+// --- 3. WHATSAPP RECEPTOR ---
 const ID_GRUPO = '120363361803863216@g.us';
 const PROCESADOS_FILE = './DATA/procesados.json';
-// Nota: al usar N8N_PATH=/n8n/, la URL del webhook interna cambia
-const N8N_WEBHOOK = 'http://localhost:10001/n8n/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e'; 
+const N8N_WEBHOOK = 'http://localhost:10001/n8n/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e';
 
 if (!fs.existsSync('./DATA')) fs.mkdirSync('./DATA');
 let procesados = fs.existsSync(PROCESADOS_FILE) ? JSON.parse(fs.readFileSync(PROCESADOS_FILE, 'utf-8')) : [];
 const queue = [];
 let isProcessing = false;
 
+function esNuevoMensaje(id) {
+    if (!id || procesados.includes(id)) return false;
+    procesados.push(id);
+    if (procesados.length > 5000) procesados.shift();
+    fs.writeFileSync(PROCESADOS_FILE, JSON.stringify(procesados));
+    return true;
+}
+
 async function startReceptor() {
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    
     const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
         browser: ["Sistema Carbao", "Chrome", "1.0.0"],
+        printQRInTerminal: true
     });
 
     sock.ev.on('creds.update', saveCreds);
+
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
         for (const m of messages) {
-            if (m.key.remoteJid === ID_GRUPO) {
+            if (m.key.remoteJid === ID_GRUPO && esNuevoMensaje(m.key.id)) {
                 if (m.message?.imageMessage || m.message?.documentMessage) {
+                    console.log("📥 Nuevo comprobante detectado...");
                     queue.push(m);
                     if (!isProcessing) processQueue();
                 }
@@ -120,10 +140,12 @@ async function startReceptor() {
                 fileName: `CARBAO_${Date.now()}`,
                 fileData: buffer.toString('base64'),
                 mimeType: content.mimetype,
-                sender: m.pushName || 'User'
+                sender: m.pushName || 'Colaborador Carbao'
             });
-            console.log("✅ Enviado a n8n");
-        } catch (e) { console.error("❌ Error enviando:", e.message); }
+            console.log("✅ Documento procesado y enviado a n8n");
+        } catch (e) { 
+            console.error("❌ Error enviando a n8n:", e.message); 
+        }
         setTimeout(processQueue, 2000);
     }
 
@@ -131,7 +153,7 @@ async function startReceptor() {
         if (u.qr) ultimoQR = u.qr;
         if (u.connection === 'open') {
             ultimoQR = "";
-            console.log('✅ WhatsApp Conectado');
+            console.log('✅ WhatsApp vinculado correctamente!');
         }
         if (u.connection === 'close') {
             if ((new Boom(u.lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut) {
