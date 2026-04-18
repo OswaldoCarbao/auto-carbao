@@ -16,18 +16,19 @@ RUN npm install --omit=dev
 # Copiamos todo el proyecto
 COPY . .
 
-# Copiamos el Workflow específicamente con el nombre que espera el comando
+# Copiamos el Workflow específicamente
 COPY Auto-Conta.json /home/node/workflow_carbao.json
 
-# Permisos
+# Permisos para el usuario node
 RUN mkdir -p /home/node/.n8n && chown -R node:node /home/node
 
-# --- VARIABLES DE ENTORNO CRÍTICAS PARA EL PROXY ---
+# --- VARIABLES DE ENTORNO CRÍTICAS ---
 ENV PORT=10000
 ENV N8N_PORT=10001
 ENV N8N_PATH=/n8n/
+# Esta URL es la que n8n usará para generar sus propios links internos
 ENV N8N_BASE_URL=https://auto-carbao.onrender.com/
-ENV WEBHOOK_URL=https://auto-carbao.onrender.com/n8n/
+ENV N8N_WEBHOOK_URL=https://auto-carbao.onrender.com/n8n/
 
 USER node
 EXPOSE 10000
