@@ -20,40 +20,38 @@ const proxy = httpProxy.createProxyServer({});
 const port = process.env.PORT || 10000;
 let ultimoQR = "";
 
-// EL PUENTE MAESTRO: Redirige /n8n al puerto interno 10001
+// EL PUENTE MAESTRO CORREGIDO
 app.all('/n8n*', (req, res) => {
+    // 1. Quitamos /n8n de la ruta para que n8n interno lo entienda
+    let newUrl = req.url.replace('/n8n', '');
+    if (newUrl === '') newUrl = '/';
+    req.url = newUrl;
+
+    // 2. Redirigimos al puerto 10001
     proxy.web(req, res, { 
         target: 'http://localhost:10001',
         changeOrigin: true
     }, (e) => {
         console.error("Proxy error:", e.message);
-        res.status(502).send("n8n de Carbao está despertando... recarga en 10 segundos.");
+        res.status(502).send("n8n está iniciando... recarga en 15 segundos.");
     });
 });
 
-app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀 - Ve a /n8n para configurar o /qr para vincular'));
+app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀 - Ve a /n8n/ para configurar'));
 
 // RUTA PARA EL QR
 app.get('/qr', async (req, res) => {
     if (!ultimoQR) {
-        return res.send(`
-            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
-                <h2>El QR aún no se genera o ya estás vinculado.</h2>
-                <script>setTimeout(() => location.reload(), 5000);</script>
-            </body>
-        `);
+        return res.send(`<body><h2>Esperando QR...</h2><script>setTimeout(()=>location.reload(),5000)</script></body>`);
     }
     try {
         const qrImage = await QRCodeImage.toDataURL(ultimoQR);
         res.send(`
-            <html>
-                <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;font-family:sans-serif;text-align:center;">
-                    <h2>Vincular WhatsApp Consorcio Carbao</h2>
-                    <img src="${qrImage}" style="border:10px solid white; box-shadow:0 4px 6px rgba(0,0,0,0.1); width:300px;">
-                    <p>Escanea con el celular de la empresa</p>
-                    <script>setTimeout(() => location.reload(), 20000);</script>
-                </body>
-            </html>
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;font-family:sans-serif;">
+                <h2>Vincular WhatsApp CARBAO</h2>
+                <img src="${qrImage}" style="width:300px; border:10px solid white; border-radius:10px;">
+                <script>setTimeout(() => location.reload(), 20000);</script>
+            </body>
         `);
     } catch (err) { res.status(500).send("Error QR"); }
 });
@@ -66,30 +64,23 @@ app.listen(port, '0.0.0.0', () => {
 // --- 2. LÓGICA DE ARRANQUE ---
 function iniciarTodo() {
     console.log("🚀 Iniciando n8n...");
-    // Importante: n8n hereda las variables de entorno del Dockerfile automáticamente
+    // n8n start hereda las variables del Dockerfile
     exec('n8n start', (err, stdout, stderr) => {
         if (err) console.error(`Error n8n: ${err}`);
     });
     startReceptor();
 }
 
-// --- 3. WHATSAPP (Lógica de Carbao) ---
+// --- 3. WHATSAPP ---
 const ID_GRUPO = '120363361803863216@g.us';
 const PROCESADOS_FILE = './DATA/procesados.json';
+// Nota: al usar N8N_PATH=/n8n/, la URL del webhook interna cambia
 const N8N_WEBHOOK = 'http://localhost:10001/n8n/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e'; 
 
 if (!fs.existsSync('./DATA')) fs.mkdirSync('./DATA');
 let procesados = fs.existsSync(PROCESADOS_FILE) ? JSON.parse(fs.readFileSync(PROCESADOS_FILE, 'utf-8')) : [];
 const queue = [];
 let isProcessing = false;
-
-function esNuevoMensaje(id) {
-    if (!id || procesados.includes(id)) return false;
-    procesados.push(id);
-    if (procesados.length > 5000) procesados.shift();
-    fs.writeFileSync(PROCESADOS_FILE, JSON.stringify(procesados));
-    return true;
-}
 
 async function startReceptor() {
     const { version } = await fetchLatestBaileysVersion();
@@ -105,7 +96,7 @@ async function startReceptor() {
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
         for (const m of messages) {
-            if (m.key.remoteJid === ID_GRUPO && esNuevoMensaje(m.key.id)) {
+            if (m.key.remoteJid === ID_GRUPO) {
                 if (m.message?.imageMessage || m.message?.documentMessage) {
                     queue.push(m);
                     if (!isProcessing) processQueue();
@@ -124,14 +115,15 @@ async function startReceptor() {
             const stream = await downloadContentFromMessage(content, type);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            
             await axios.post(N8N_WEBHOOK, {
                 fileName: `CARBAO_${Date.now()}`,
                 fileData: buffer.toString('base64'),
                 mimeType: content.mimetype,
                 sender: m.pushName || 'User'
             });
-            console.log("✅ Documento enviado a n8n");
-        } catch (e) { console.error("❌ Error en cola:", e.message); }
+            console.log("✅ Enviado a n8n");
+        } catch (e) { console.error("❌ Error enviando:", e.message); }
         setTimeout(processQueue, 2000);
     }
 
@@ -139,7 +131,7 @@ async function startReceptor() {
         if (u.qr) ultimoQR = u.qr;
         if (u.connection === 'open') {
             ultimoQR = "";
-            console.log('✅ Conectado a WhatsApp');
+            console.log('✅ WhatsApp Conectado');
         }
         if (u.connection === 'close') {
             if ((new Boom(u.lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut) {
