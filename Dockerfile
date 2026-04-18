@@ -8,6 +8,15 @@ RUN apk add --no-cache git
 RUN npm install -g n8n
 
 WORKDIR /home/node/app
+ENV PORT=10000
+ENV N8N_PORT=10001
+ENV N8N_PATH=/n8n/
+
+# Estas 3 líneas obligan a n8n a usar la URL de Render en lugar de localhost
+ENV N8N_PROTOCOL=https
+ENV N8N_HOST=auto-carbao.onrender.com
+ENV WEBHOOK_URL=https://auto-carbao.onrender.com/n8n/
+ENV N8N_BASE_URL=https://auto-carbao.onrender.com/
 
 # Copiamos archivos de dependencias
 COPY package*.json ./
