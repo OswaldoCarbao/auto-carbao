@@ -1,10 +1,20 @@
+const express = require('express');
+const app = express();
 const { exec } = require('child_process');
-// Esto arranca n8n en segundo plano para que tú puedas usar la interfaz
-exec('n8n', (err) => {
-    if (err) console.error('Error al arrancar n8n:', err);
+
+// 1. Responderle a Render inmediatamente
+const port = process.env.PORT || 10000;
+app.get('/', (req, res) => res.send('Sistema CARBAO Activo'));
+app.listen(port, '0.0.0.0', () => {
+    console.log(`✅ Servidor de salud escuchando en puerto ${port}`);
 });
 
-console.log('🚀 [RECEPTOR CARBAO] Iniciando sistema...');
+// 2. Arrancar n8n en paralelo
+console.log("🚀 Iniciando n8n...");
+exec('n8n start', (err, stdout, stderr) => {
+    if (err) console.error(`Error n8n: ${err}`);
+    console.log(stdout);
+});
 import makeWASocket, { 
     useMultiFileAuthState, 
     downloadContentFromMessage, 
