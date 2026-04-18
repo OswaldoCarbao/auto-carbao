@@ -9,5 +9,5 @@ RUN npm install
 ENV N8N_PORT=10000
 EXPOSE 10000
 
-# Usamos la ruta completa donde n8n guarda node
-CMD ["/usr/local/bin/node", "index_receptor.js"]
+# Usamos la ruta universal de node
+CMD ["node", "index_receptor.js"]
