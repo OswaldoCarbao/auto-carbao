@@ -1,20 +1,5 @@
-const express = require('express');
-const app = express();
-const { exec } = require('child_process');
-
-// 1. Responderle a Render inmediatamente
-const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Sistema CARBAO Activo'));
-app.listen(port, '0.0.0.0', () => {
-    console.log(`✅ Servidor de salud escuchando en puerto ${port}`);
-});
-
-// 2. Arrancar n8n en paralelo
-console.log("🚀 Iniciando n8n...");
-exec('n8n start', (err, stdout, stderr) => {
-    if (err) console.error(`Error n8n: ${err}`);
-    console.log(stdout);
-});
+import express from 'express';
+import { exec } from 'child_process';
 import makeWASocket, { 
     useMultiFileAuthState, 
     downloadContentFromMessage, 
@@ -27,10 +12,34 @@ import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 
-// --- CONFIGURACIÓN ---
+// --- 1. CONFIGURACIÓN DEL SERVIDOR DE SALUD (Para Render) ---
+const app = express();
+const port = process.env.PORT || 10000;
+
+app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀'));
+
+app.listen(port, '0.0.0.0', () => {
+    console.log(`✅ Servidor de salud escuchando en puerto ${port}`);
+    
+    // Una vez que el servidor de Render está feliz, arrancamos n8n y WhatsApp
+    iniciarTodo();
+});
+
+// --- 2. LÓGICA DE ARRANQUE EN PARALELO ---
+function iniciarTodo() {
+    console.log("🚀 Iniciando n8n en segundo plano...");
+    exec('n8n start', (err, stdout, stderr) => {
+        if (err) console.error(`Error n8n: ${err}`);
+        console.log(stdout);
+    });
+
+    startReceptor();
+}
+
+// --- 3. CONFIGURACIÓN WHATSAPP ---
 const ID_GRUPO = '120363361803863216@g.us';
 const PROCESADOS_FILE = './DATA/procesados.json';
-const N8N_WEBHOOK = 'http://localhost:10000/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e';
+const N8N_WEBHOOK = 'http://localhost:10001/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e'; // OJO: puerto 10001 si n8n corre ahí
 
 if (!fs.existsSync('./DATA')) fs.mkdirSync('./DATA');
 
@@ -53,59 +62,40 @@ function esNuevoMensaje(id) {
 }
 
 async function startReceptor() {
-    console.log('🚀 [RECEPTOR] Iniciando sistema de vigilancia CARBAO...');
+    console.log('🔍 [RECEPTOR] Iniciando vigilancia de comprobantes...');
     
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
-    const socketIDS = (typeof makeWASocket === 'function') ? makeWASocket : makeWASocket.default;
-
-    const sock = socketIDS({
+    const sock = makeWASocket.default({
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
         browser: ["Sistema Contabilidad CARBAO", "Chrome", "1.0.0"], 
-        syncFullHistory: true, // Esto es vital para leer lo que pasó mientras no estabas
+        syncFullHistory: true,
         shouldSyncHistoryMessage: () => true,
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 0,
-        keepAliveIntervalMs: 30000,
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    // MEJORA: Este evento captura los mensajes que WhatsApp envía en ráfaga al conectar (mensajes "offline")
-    sock.ev.on('messaging-history.set', async ({ messages }) => {
-        console.log(`⏳ [HISTORIAL] Recuperando ${messages.length} mensajes recibidos mientras el bot estaba offline...`);
-        for (const m of messages) {
-            await analizarMensaje(m);
-        }
-    });
-
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        // 'notify' son mensajes nuevos, 'append' suelen ser mensajes de sistema o ráfagas de historial
         if (type !== 'notify' && type !== 'append') return;
         for (const m of messages) {
-            await analizarMensaje(m);
-        }
-    });
+            const msgId = m.key?.id;
+            const from = m.key?.remoteJid;
+            const timestamp = m.messageTimestamp ? (m.messageTimestamp * 1000) : Date.now();
+            const doceHorasAtras = Date.now() - (12 * 60 * 60 * 1000);
 
-    async function analizarMensaje(m) {
-        const msgId = m.key?.id;
-        const from = m.key?.remoteJid;
-        // Si no tiene timestamp (mensajes muy viejos de historial), usamos el actual pero con precaución
-        const timestamp = m.messageTimestamp ? (m.messageTimestamp * 1000) : Date.now();
-        const doceHorasAtras = Date.now() - (12 * 60 * 60 * 1000); // Bajamos a 12h para no saturar al reconectar
-
-        if (from === ID_GRUPO && esNuevoMensaje(msgId) && timestamp > doceHorasAtras) {
-            const content = m.message?.imageMessage || m.message?.documentMessage;
-            if (content) {
-                console.log(`📥 Comprobante detectado (ID: ${msgId})`);
-                queue.push(m);
-                if (!isProcessing) processQueue();
+            if (from === ID_GRUPO && esNuevoMensaje(msgId) && timestamp > doceHorasAtras) {
+                const content = m.message?.imageMessage || m.message?.documentMessage;
+                if (content) {
+                    console.log(`📥 Comprobante detectado (ID: ${msgId})`);
+                    queue.push(m);
+                    if (!isProcessing) processQueue();
+                }
             }
         }
-    }
+    });
 
     async function processQueue() {
         if (queue.length === 0) { isProcessing = false; return; }
@@ -133,36 +123,19 @@ async function startReceptor() {
         } catch (e) {
             console.error("❌ Error enviando a n8n:", e.message);
         }
-        setTimeout(processQueue, 2000); // Un poco más rápido para procesar ráfagas de historial
+        setTimeout(processQueue, 2000);
     }
 
-    sock.ev.on('connection.update', async (update) => {
+    sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
         if (qr) {
-            console.log('⚠️ [AVISO] Se requiere nuevo escaneo QR (La sesión expiró o se cerró):');
+            console.log('⚠️ [AVISO] ESCANEA EL QR EN LOS LOGS:');
             qrcode.generate(qr, { small: true });
         }
-
-        if (connection === 'open') {
-            console.log('✅ [SISTEMA] ¡CONECTADO EXITOSAMENTE!');
-            console.log('🔍 Monitoreando el grupo CARBAO...');
-        }
-
+        if (connection === 'open') console.log('✅ [WHATSAPP] Conectado y listo.');
         if (connection === 'close') {
-            const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
-            console.log(`🔌 Conexión cerrada. Razón: ${reason}`);
-            
-            // Si el error es 401 o 440, la sesión murió. Si no, reintentamos rápido.
-            if (reason !== DisconnectReason.loggedOut) {
-                const retryDelay = 5000; // 5 segundos es el punto dulce para no ser baneado
-                console.log(`🔄 Reconectando en ${retryDelay/1000} segundos para no perder mensajes...`);
-                setTimeout(startReceptor, retryDelay);
-            } else {
-                console.log('❌ Sesión cerrada permanentemente. Se requiere que la administradora escanee de nuevo.');
-            }
+            const shouldReconnect = (new Boom(lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) setTimeout(startReceptor, 5000);
         }
     });
 }
-
-startReceptor().catch(err => console.error("CRITICAL ERROR:", err));
