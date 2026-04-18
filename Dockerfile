@@ -1,7 +1,7 @@
-# Cambiamos a la versión 20 que es la que pide Baileys
+# Versión de Node compatible
 FROM node:20-alpine
 
-# Instalamos GIT (necesario para bajar Baileys)
+# GIT para Baileys
 RUN apk add --no-cache git
 
 # Instalamos n8n globalmente
@@ -11,23 +11,26 @@ WORKDIR /home/node/app
 
 # Copiamos archivos de dependencias
 COPY package*.json ./
-
-# Instalamos las dependencias (ahora sí pasará el check de versión)
 RUN npm install --omit=dev
 
-# Copiamos el resto de archivos
+# Copiamos todo el proyecto
 COPY . .
 
-# Permisos para el usuario node
+# Copiamos el Workflow específicamente con el nombre que espera el comando
+COPY Auto-Conta.json /home/node/workflow_carbao.json
+
+# Permisos
 RUN mkdir -p /home/node/.n8n && chown -R node:node /home/node
 
-USER node
-
+# --- VARIABLES DE ENTORNO CRÍTICAS PARA EL PROXY ---
 ENV PORT=10000
 ENV N8N_PORT=10001
+ENV N8N_PATH=/n8n/
+ENV N8N_BASE_URL=https://auto-carbao.onrender.com/
+ENV WEBHOOK_URL=https://auto-carbao.onrender.com/n8n/
+
+USER node
 EXPOSE 10000
 
-CMD ["node", "index_receptor.js"]
-COPY Auto-Conta.json /home/node/workflow_carbao.json
-# Modificamos el comando de inicio para que importe el archivo antes de arrancar todo
+# Importamos el flujo y arrancamos el script principal
 CMD n8n import:workflow --input=/home/node/workflow_carbao.json && node index_receptor.js
