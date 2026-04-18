@@ -15,6 +15,17 @@ import { Boom } from '@hapi/boom';
 
 // --- 1. CONFIGURACIÓN DEL SERVIDOR Y RUTA QR ---
 const app = express();
+import httpProxy from 'http-proxy';
+const proxy = httpProxy.createProxyServer({});
+
+// El "Puente" para entrar a n8n
+app.all('/n8n*', (req, res) => {
+    // Limpiamos la URL para que n8n no se confunda
+    req.url = req.url.replace('/n8n', ''); 
+    proxy.web(req, res, { target: 'http://localhost:10001' }, (e) => {
+        res.status(500).send("n8n aún está cargando...");
+    });
+});
 const port = process.env.PORT || 10000;
 let ultimoQR = ""; // Aquí guardaremos el string del QR
 
