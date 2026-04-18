@@ -1,0 +1,2010 @@
+{
+  "name": "Auto-Conta",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "071685b6-7efd-4353-9b9e-ce4594fd164e",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3440,
+        208
+      ],
+      "id": "b6943639-fd70-4680-83f2-3a2f514ac787",
+      "name": "Receptor Whatsapp Archivos",
+      "webhookId": "071685b6-7efd-4353-9b9e-ce4594fd164e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n// Rescatamos los datos del inicio\nconst webhookData = $('Receptor Whatsapp Archivos').first().json.body;\n\nfor (let i = 0; i < items.length; i++) {\n  const base64Data = webhookData.fileData;\n  const fileName = webhookData.fileName;\n  const mimeType = webhookData.mimeType || 'image/jpeg';\n  // RESCATAMOS EL LINK AQUÍ:\n  const linkArchivo = webhookData.link_archivo; \n\n  items[i].binary = {\n    data: {\n      data: base64Data,\n      fileName: fileName,\n      mimeType: mimeType,\n    }\n  };\n  \n  // Pasamos el link al JSON de este nodo para que Sheets lo vea\n  items[i].json.link_archivo = linkArchivo;\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2832,
+        208
+      ],
+      "id": "fa92ba5e-5d03-41af-9d75-163878149870",
+      "name": "Codificación 1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $node[\"Codificación 1\"].binary.data.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "1FwBPU58Jp0YhEZfBR3Fn4Yrpv5LKq6jM",
+          "mode": "id"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1QNwNMk1KVAY43l6H_btUM-cCJE4SKDMg"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2640,
+        208
+      ],
+      "id": "edb3fcd8-8beb-457f-9cd9-1f01ff823cce",
+      "name": "Google Drive",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2432,
+        208
+      ],
+      "id": "e27a4d15-9e65-45c4-9ae6-e3bcfd957534",
+      "name": "Download file",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-flash-lite-latest",
+          "mode": "list",
+          "cachedResultName": "models/gemini-flash-lite-latest"
+        },
+        "text": "Actúa como un experto contable peruano especializado en auditoría digital y bancaria. Analiza el documento adjunto con precisión quirúrgica.\n\nPASO 1: Clasificación de Documentos\n- FACTURA: Solo si el documento indica explícitamente ser una Factura Electrónica.\n- TRANSFERENCIA: Incluye capturas de YAPE, PLIN, capturas de banca móvil, vouchers de depósito y transferencias interbancarias.\n- OTROS TIPOS DE PAGO: Incluye boletas de venta, tickets, pagos SUNAT, recibos por honorarios y otros comprobantes no clasificados arriba.\n\nPASO 2: Extrae los datos y devuélvelos ÚNICAMENTE en formato JSON usando estos esquemas:\n\nSi es FACTURA:\n{\"tipo\": \"factura\", \"nombre_hoja_destino\": \"\", \"anio_documento\": \"\", \"ID FACTURAS\": \"\", \"FECHA FACTURAS\": \"\", \"RUC EMISOR FACTURAS\": \"\", \"NOMBRE EMISOR FACTURAS\": \"\", \"RUC CLIENTE FACTURAS\": \"\", \"NOMBRE CLIENTE FACTURAS\": \"\", \"SUBTOTAL FACTURAS\": \"\", \"IGV FACTURAS\": \"\", \"MONTO TOTAL FACTURAS\": \"\", \"DESCRIPCIÓN O ASUNTO FACTURAS\": \"\", \"ESTADO FACTURAS\": \"\", \"ARCHIVO FACTURAS\": \"No registra\", \"OBSERVACIONES FACTURAS\": \"\"}\n\nSi es OTROS TIPOS DE PAGO:\n{\"tipo\": \"boleta\", \"nombre_hoja_destino\": \"\", \"anio_documento\": \"\", \"TIPO DE PAGO\": \"\", \"FECHA\": \"\", \"RUC\": \"\", \"NOMBRE EMISOR\": \"\", \"DNI CLIENTE\": \"\", \"MONTO TOTAL\": \"\", \"IGV\": \"\", \"DESCRIPCIÓN\": \"\", \"ESTADO\": \"\", \"ARCHIVO\": \"No registra\", \"OBSERVACIÓN\": \"\"}\n\nSi es TRANSFERENCIA (Yape, Plin, Banco):\n{\"tipo\": \"transferencia\", \"nombre_hoja_destino\": \"\", \"anio_documento\": \"\", \"ID TRANSFERENCIAS\": \"\", \"FECHA TRANSFERENCIAS\": \"\", \"BANCO ORIGEN TRANSFERENCIAS\": \"\", \"CUENTA ORIGEN TRANSFERENCIAS\": \"\", \"BANCO DESTINO TRANSFERENCIAS\": \"\", \"CUENTA DESTINO TRANSFERENCIAS\": \"\", \"MONTO TRANSFERENCIAS\": \"\", \"MONEDA TRANSFERENCIAS\": \"\", \"OPERACIÓN TRANSFERENCIAS\": \"\", \"DESCRIPCIÓN O ASUNTO TRANSFERENCIAS\": \"\", \"ESTADO TRANSFERENCIAS\": \"\", \"ARCHIVO TRANSFERENCIAS\": \"No registra\", \"OBSERVACIÓN TRANSFERENCIAS\": \"\"}\n\nREGLAS DE ORO (CRÍTICAS):\n1. tipo (INDISPENSABLE): Devuelve obligatoriamente \"factura\", \"boleta\" o \"transferencia\" para que el sistema de rutas no falle. No uses otros nombres aquí.\n2. nombre_hoja_destino: Extrae el MES del documento y devuélvelo ÚNICAMENTE en MAYÚSCULAS (Ej: \"MARZO\"). PROHIBIDO incluir el año aquí.\n3. anio_documento: Solo el año en 4 dígitos (Ej: \"2026\").\n4. CASO YAPE/PLIN: Si es un Yape o Plin, en \"BANCO ORIGEN\" pon \"YAPE\" o \"PLIN\" según corresponda, y clasifícalo como \"tipo\": \"transferencia\".\n5. ID: Formato AAAAMMDD-HHMM basado en la fecha del documento.\n6. ESTADO: VERDE (>90%), AMARILLO (70-90%), ROJO (<70%).\n7. VACÍOS: Si el dato no existe, pon \"No registra\".\n\nOUTPUT: Responde EXCLUSIVAMENTE con el JSON puro. Sin saludos ni texto adicional.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -2224,
+        208
+      ],
+      "id": "154cabc2-efbb-4c0b-9fc3-f7a92f7dbe52",
+      "name": "Analyze an image",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Zu9lQ6BBO3PI98gc",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $json.content.parts[0].text;\nlet data = {};\n\ntry {\n  // Intentamos limpiar y parsear el JSON\n  const cleanJson = rawText.replace(/```json|```/g, \"\").trim();\n  data = JSON.parse(cleanJson);\n} catch (e) {\n  // Si falla el parseo (porque Gemini mandó texto normal), creamos un objeto por defecto\n  data = {\n    error: \"Imagen borrosa o no legible\",\n    detalle: rawText.substring(0, 50) + \"...\", // Guardamos el inicio de la excusa de Gemini\n    nombre_hoja_destino: \"REVISAR\", // Para que sepas que falló\n    anio_documento: new Date().getFullYear()\n  };\n}\n\n// Mantenemos tus campos adicionales\nconst mesNombre = data.nombre_hoja_destino || \"REVISAR\";\nconst anioDoc = data.anio_documento || \"\";\n\nreturn {\n  ...data,\n  nombre_hoja_destino: mesNombre,\n  anio_documento: anioDoc,\n  id_final: \"ID-\" + Date.now(),\n  link_archivo: $node[\"Google Drive\"].json[\"webViewLink\"] || \"https://drive.google.com/uc?id=\" + $node[\"Google Drive\"].json[\"id\"]\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2032,
+        208
+      ],
+      "id": "b98b140f-dbcb-4686-a3f2-da6955432ed2",
+      "name": "Code convertidor datos"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"tipo\"].toLowerCase().trim() }}",
+                    "rightValue": "factura",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "73afbfc2-678a-4325-ac31-c61cf7d2ae7b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "0"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5588a2e3-1a73-4e2f-8c7c-18d547adf5f9",
+                    "leftValue": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"tipo\"].toLowerCase().trim() }}",
+                    "rightValue": "boleta",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bac9d8e0-d3f5-4eab-b843-0082ae18d7e9",
+                    "leftValue": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"tipo\"].toLowerCase().trim() }}",
+                    "rightValue": "transferencia",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "2"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -256,
+        176
+      ],
+      "id": "7ac87207-6e9f-4852-abbe-f56366567395",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Search files and folders\"].json[\"id\"] || $item(0).$node[\"Update file\"].json[\"id\"] }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"nombre_hoja_destino\"] }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"ID FACTURAS\"] }}",
+            "OBSERVACIONES FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"OBSERVACIONES FACTURAS\"] }}",
+            "ARCHIVO FACTURAS": "=={{ 'HYPERLINK(\"https://drive.google.com/uc?id=' + $node[\"Google Drive\"].json[\"id\"] + '\", \"VER ARCHIVO\")' }}",
+            "ESTADO FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"ESTADO FACTURAS\"] }}",
+            "DESCRIPCIÓN O ASUNTO FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"DESCRIPCIÓN O ASUNTO FACTURAS\"] }}",
+            "MONTO TOTAL FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"MONTO TOTAL FACTURAS\"] }}",
+            "IGV FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"IGV FACTURAS\"] }}",
+            "SUBTOTAL FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"SUBTOTAL FACTURAS\"] }}",
+            "NOMBRE CLIENTE FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"NOMBRE CLIENTE FACTURAS\"] }}",
+            "RUC CLIENTE FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"RUC CLIENTE FACTURAS\"] }}",
+            "NOMBRE EMISOR FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"NOMBRE EMISOR FACTURAS\"] }}",
+            "RUC EMISOR FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"RUC EMISOR FACTURAS\"] }}",
+            "FECHA FACTURAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"FECHA FACTURAS\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID FACTURAS",
+              "displayName": "ID FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "FECHA FACTURAS",
+              "displayName": "FECHA FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "RUC EMISOR FACTURAS",
+              "displayName": "RUC EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "NOMBRE EMISOR FACTURAS",
+              "displayName": "NOMBRE EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "RUC CLIENTE FACTURAS",
+              "displayName": "RUC CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "NOMBRE CLIENTE FACTURAS",
+              "displayName": "NOMBRE CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SUBTOTAL FACTURAS",
+              "displayName": "SUBTOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "IGV FACTURAS",
+              "displayName": "IGV FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "MONTO TOTAL FACTURAS",
+              "displayName": "MONTO TOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ESTADO FACTURAS",
+              "displayName": "ESTADO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ARCHIVO FACTURAS",
+              "displayName": "ARCHIVO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "OBSERVACIONES FACTURAS",
+              "displayName": "OBSERVACIONES FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TIPO DE PAGO",
+              "displayName": "TIPO DE PAGO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "FECHA",
+              "displayName": "FECHA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "RUC",
+              "displayName": "RUC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "NOMBRE EMISOR",
+              "displayName": "NOMBRE EMISOR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DNI CLIENTE",
+              "displayName": "DNI CLIENTE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "MONTO TOTAL",
+              "displayName": "MONTO TOTAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "IGV",
+              "displayName": "IGV",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DESCRIPCIÓN",
+              "displayName": "DESCRIPCIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ARCHIVO",
+              "displayName": "ARCHIVO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "OBSERVACIÓN",
+              "displayName": "OBSERVACIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ID TRANSFERENCIAS",
+              "displayName": "ID TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "FECHA TRANSFERENCIAS",
+              "displayName": "FECHA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "BANCO ORIGEN TRANSFERENCIAS",
+              "displayName": "BANCO ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CUENTA ORIGEN TRANSFERENCIAS",
+              "displayName": "CUENTA ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "BANCO DESTINO TRANSFERENCIAS",
+              "displayName": "BANCO DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CUENTA DESTINO TRANSFERENCIAS",
+              "displayName": "CUENTA DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "MONTO TRANSFERENCIAS",
+              "displayName": "MONTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "MONEDA TRANSFERENCIAS",
+              "displayName": "MONEDA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "OPERACIÓN TRANSFERENCIAS",
+              "displayName": "OPERACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ESTADO TRANSFERENCIAS",
+              "displayName": "ESTADO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ARCHIVO TRANSFERENCIAS",
+              "displayName": "ARCHIVO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "OBSERVACIÓN TRANSFERENCIAS",
+              "displayName": "OBSERVACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {
+              "headerRow": 3
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        -16
+      ],
+      "id": "e3aa53d8-4a6d-44dd-b2fd-23567eef0637",
+      "name": "Sheets Facturas",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QgChIA3AH98b5yGL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Search files and folders\"].json[\"id\"] || $item(0).$node[\"Update file\"].json[\"id\"] }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"nombre_hoja_destino\"] }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "OBSERVACIÓN TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"OBSERVACIÓN TRANSFERENCIAS\"] }}",
+            "ESTADO TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"ESTADO TRANSFERENCIAS\"] }}",
+            "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"DESCRIPCIÓN O ASUNTO TRANSFERENCIAS\"] }}",
+            "OPERACIÓN TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"OPERACIÓN TRANSFERENCIAS\"] }}",
+            "MONEDA TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"MONEDA TRANSFERENCIAS\"] }}",
+            "MONTO TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"MONTO TRANSFERENCIAS\"] }}",
+            "CUENTA DESTINO TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"CUENTA DESTINO TRANSFERENCIAS\"] }}",
+            "BANCO DESTINO TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"BANCO DESTINO TRANSFERENCIAS\"] }}",
+            "CUENTA ORIGEN TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"CUENTA ORIGEN TRANSFERENCIAS\"] }}",
+            "BANCO ORIGEN TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"BANCO ORIGEN TRANSFERENCIAS\"] }}",
+            "FECHA TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"FECHA TRANSFERENCIAS\"] }}",
+            "ID TRANSFERENCIAS": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"ID TRANSFERENCIAS\"] }}",
+            "ARCHIVO TRANSFERENCIAS": "=={{ 'HYPERLINK(\"https://drive.google.com/uc?id=' + $node[\"Google Drive\"].json[\"id\"] + '\", \"VER ARCHIVO\")' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID FACTURAS",
+              "displayName": "ID FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA FACTURAS",
+              "displayName": "FECHA FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC EMISOR FACTURAS",
+              "displayName": "RUC EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE EMISOR FACTURAS",
+              "displayName": "NOMBRE EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC CLIENTE FACTURAS",
+              "displayName": "RUC CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE CLIENTE FACTURAS",
+              "displayName": "NOMBRE CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "SUBTOTAL FACTURAS",
+              "displayName": "SUBTOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "IGV FACTURAS",
+              "displayName": "IGV FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TOTAL FACTURAS",
+              "displayName": "MONTO TOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO FACTURAS",
+              "displayName": "ESTADO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO FACTURAS",
+              "displayName": "ARCHIVO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIONES FACTURAS",
+              "displayName": "OBSERVACIONES FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TIPO DE PAGO",
+              "displayName": "TIPO DE PAGO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA",
+              "displayName": "FECHA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC",
+              "displayName": "RUC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE EMISOR",
+              "displayName": "NOMBRE EMISOR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DNI CLIENTE",
+              "displayName": "DNI CLIENTE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TOTAL",
+              "displayName": "MONTO TOTAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "IGV",
+              "displayName": "IGV",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN",
+              "displayName": "DESCRIPCIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO",
+              "displayName": "ARCHIVO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIÓN",
+              "displayName": "OBSERVACIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID TRANSFERENCIAS",
+              "displayName": "ID TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA TRANSFERENCIAS",
+              "displayName": "FECHA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "BANCO ORIGEN TRANSFERENCIAS",
+              "displayName": "BANCO ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CUENTA ORIGEN TRANSFERENCIAS",
+              "displayName": "CUENTA ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "BANCO DESTINO TRANSFERENCIAS",
+              "displayName": "BANCO DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CUENTA DESTINO TRANSFERENCIAS",
+              "displayName": "CUENTA DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TRANSFERENCIAS",
+              "displayName": "MONTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONEDA TRANSFERENCIAS",
+              "displayName": "MONEDA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OPERACIÓN TRANSFERENCIAS",
+              "displayName": "OPERACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO TRANSFERENCIAS",
+              "displayName": "ESTADO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO TRANSFERENCIAS",
+              "displayName": "ARCHIVO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIÓN TRANSFERENCIAS",
+              "displayName": "OBSERVACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {
+              "headerRow": 3
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        416
+      ],
+      "id": "9c7af854-50c7-4463-aa71-c031e49c1f17",
+      "name": "Sheets Transferencias",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QgChIA3AH98b5yGL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe108dd9-42f2-453b-b7d1-12cfa843c037",
+              "leftValue": "={{ $node[\"Search files and folders\"].json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1408,
+        208
+      ],
+      "id": "c8416671-ae1a-4051-a5fa-c79ad3c89070",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "1Bn3MsMpmo3VXH6XxEqk5I6bMHXv_EUuxL9xQv4t6uEc",
+          "mode": "id"
+        },
+        "name": "=Reporte_Contable_{{ $item(0).$node[\"Code convertidor datos\"].json[\"anio_documento\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1232,
+        352
+      ],
+      "id": "5d3c5583-6204-4636-a48a-fe05425d7ca9",
+      "name": "Copy file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = 'Reporte_Contable_{{ $node[\"Code convertidor datos\"].json[\"anio_documento\"] }}'",
+        "filter": {
+          "driveId": {
+            "__rl": true,
+            "value": "My Drive",
+            "mode": "list",
+            "cachedResultName": "My Drive",
+            "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "1FwBPU58Jp0YhEZfBR3Fn4Yrpv5LKq6jM",
+            "mode": "list",
+            "cachedResultName": "CONTA_AUTO",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1FwBPU58Jp0YhEZfBR3Fn4Yrpv5LKq6jM"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1824,
+        208
+      ],
+      "id": "1a25867c-e76f-4340-b567-df265d41c5aa",
+      "name": "Search files and folders",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "73ab96ce-29e9-4678-910f-1b41395a4aa8",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "Reporte_Contable_{{ $node[\"Code convertidor datos\"].json[\"anio_documento\"] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -1616,
+        208
+      ],
+      "id": "883a7bd6-2b8b-4827-a0d3-7adb48a290bc",
+      "name": "Filter",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1568,
+        1024
+      ],
+      "id": "91e7d4d6-c00f-4696-ae7a-0b2a58105ed8",
+      "name": "Merge",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "newUpdatedFileName": "=Reporte_Contable_{{ $item(0).$node[\"Code convertidor datos\"].json[\"anio_documento\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1008,
+        352
+      ],
+      "id": "d2f28f7c-e87e-447b-9dfb-2ea56c378e50",
+      "name": "Update file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Search files and folders\"].json[\"id\"] || $item(0).$node[\"Update file\"].json[\"id\"] }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"nombre_hoja_destino\"] }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TIPO DE PAGO": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"TIPO DE PAGO\"] }}",
+            "FECHA": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"FECHA\"] }}",
+            "RUC": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"RUC\"] }}",
+            "NOMBRE EMISOR": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"NOMBRE EMISOR\"] }}",
+            "DNI CLIENTE": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"DNI CLIENTE\"] }}",
+            "MONTO TOTAL": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"MONTO TOTAL\"] }}",
+            "IGV": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"IGV\"] }}",
+            "DESCRIPCIÓN": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"DESCRIPCIÓN\"] }}",
+            "ESTADO": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"ESTADO\"] }}",
+            "ARCHIVO": "=={{ 'HYPERLINK(\"https://drive.google.com/uc?id=' + $node[\"Google Drive\"].json[\"id\"] + '\", \"VER ARCHIVO\")' }}",
+            "OBSERVACIÓN": "={{ $item(0).$node[\"Code convertidor datos\"].json[\"OBSERVACIÓN\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID FACTURAS",
+              "displayName": "ID FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA FACTURAS",
+              "displayName": "FECHA FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC EMISOR FACTURAS",
+              "displayName": "RUC EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE EMISOR FACTURAS",
+              "displayName": "NOMBRE EMISOR FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC CLIENTE FACTURAS",
+              "displayName": "RUC CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE CLIENTE FACTURAS",
+              "displayName": "NOMBRE CLIENTE FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "SUBTOTAL FACTURAS",
+              "displayName": "SUBTOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "IGV FACTURAS",
+              "displayName": "IGV FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TOTAL FACTURAS",
+              "displayName": "MONTO TOTAL FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO FACTURAS",
+              "displayName": "ESTADO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO FACTURAS",
+              "displayName": "ARCHIVO FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIONES FACTURAS",
+              "displayName": "OBSERVACIONES FACTURAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TIPO DE PAGO",
+              "displayName": "TIPO DE PAGO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA",
+              "displayName": "FECHA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RUC",
+              "displayName": "RUC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NOMBRE EMISOR",
+              "displayName": "NOMBRE EMISOR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DNI CLIENTE",
+              "displayName": "DNI CLIENTE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TOTAL",
+              "displayName": "MONTO TOTAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "IGV",
+              "displayName": "IGV",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN",
+              "displayName": "DESCRIPCIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO",
+              "displayName": "ARCHIVO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIÓN",
+              "displayName": "OBSERVACIÓN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID TRANSFERENCIAS",
+              "displayName": "ID TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA TRANSFERENCIAS",
+              "displayName": "FECHA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "BANCO ORIGEN TRANSFERENCIAS",
+              "displayName": "BANCO ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CUENTA ORIGEN TRANSFERENCIAS",
+              "displayName": "CUENTA ORIGEN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "BANCO DESTINO TRANSFERENCIAS",
+              "displayName": "BANCO DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CUENTA DESTINO TRANSFERENCIAS",
+              "displayName": "CUENTA DESTINO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONTO TRANSFERENCIAS",
+              "displayName": "MONTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MONEDA TRANSFERENCIAS",
+              "displayName": "MONEDA TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OPERACIÓN TRANSFERENCIAS",
+              "displayName": "OPERACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "displayName": "DESCRIPCIÓN O ASUNTO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO TRANSFERENCIAS",
+              "displayName": "ESTADO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ARCHIVO TRANSFERENCIAS",
+              "displayName": "ARCHIVO TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OBSERVACIÓN TRANSFERENCIAS",
+              "displayName": "OBSERVACIÓN TRANSFERENCIAS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {
+              "headerRow": 3
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        192
+      ],
+      "id": "da55296b-91eb-4ea3-aeea-fe6645ed4f18",
+      "name": "Sheets Boletas y Otros",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QgChIA3AH98b5yGL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        16
+      ],
+      "id": "777a4f6c-cb67-4f00-b9fa-1a66c7a5bd02",
+      "name": "Wait",
+      "webhookId": "688ce714-37e0-432d-a1d7-b30262a76396"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        192
+      ],
+      "id": "5c06cc9a-dfb5-4c78-a08a-3b12735f169f",
+      "name": "Wait1",
+      "webhookId": "688ce714-37e0-432d-a1d7-b30262a76396"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        432
+      ],
+      "id": "94cfc97f-3f18-42d6-b5d1-44dae4a61271",
+      "name": "Wait2",
+      "webhookId": "688ce714-37e0-432d-a1d7-b30262a76396"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{ $node[\"Receptor Whatsapp Archivos\"].json.body.fileName }}' and trashed = false",
+        "limit": 1,
+        "filter": {
+          "driveId": {
+            "__rl": true,
+            "value": "My Drive",
+            "mode": "list",
+            "cachedResultName": "My Drive",
+            "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "1QNwNMk1KVAY43l6H_btUM-cCJE4SKDMg",
+            "mode": "list",
+            "cachedResultName": "ARCHIVOS CONTABILIDAD",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1QNwNMk1KVAY43l6H_btUM-cCJE4SKDMg"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -3280,
+        208
+      ],
+      "id": "ec48ab27-552a-42b1-a62b-303fa67e6c4b",
+      "name": "Search files and folders1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ny5wdeqnGaOtSVOM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a0f3b5e-c9fc-4ea8-a9bd-22b9564b0305",
+              "leftValue": "={{ $node[\"Search files and folders1\"].json.length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3072,
+        208
+      ],
+      "id": "d01ca584-d955-4421-b196-0650afa17e7d",
+      "name": "If1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receptor Whatsapp Archivos": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codificación 1": {
+      "main": [
+        [
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Analyze an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze an image": {
+      "main": [
+        [
+          {
+            "node": "Code convertidor datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code convertidor datos": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Copy file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy file": {
+      "main": [
+        [
+          {
+            "node": "Update file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update file": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Sheets Facturas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Sheets Boletas y Otros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Sheets Transferencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Codificación 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "55f90c5b-9086-4ff5-b45b-d0ab18dc6a8f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0761a3274162a5394ac21d0a9d9c917fb66ba81860b59972d17c1060181e2980"
+  },
+  "id": "k8KFNouhH3Vz08xV",
+  "tags": []
+}
