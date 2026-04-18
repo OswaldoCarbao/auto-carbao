@@ -4,13 +4,14 @@ USER root
 WORKDIR /home/node/app
 
 COPY package*.json ./
-COPY index_receptor.js ./
+# Instalamos Express para el health check
+RUN npm install express && npm install --omit=dev
 
-RUN npm install --omit=dev
+COPY . .
 
-# Puerto de Render
-ENV N8N_PORT=10000
+ENV N8N_PORT=10001 
+ENV PORT=10000
 EXPOSE 10000
 
-# LA SOLUCIÓN: Usamos la ruta absoluta del ejecutable de node en n8n
-CMD ["/usr/local/bin/node", "index_receptor.js"]
+# Usamos el ejecutable de n8n que ya viene en la imagen
+CMD ["node", "index_receptor.js"]
