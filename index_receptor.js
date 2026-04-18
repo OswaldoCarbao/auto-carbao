@@ -1,6 +1,6 @@
-﻿import makeWASocket, { 
 const { exec } = require('child_process');
 exec('n8n');
+import makeWASocket, { 
     useMultiFileAuthState, 
     downloadContentFromMessage, 
     fetchLatestBaileysVersion,
