@@ -1,5 +1,5 @@
 const { exec } = require('child_process');
-exec('/usr/local/bin/n8n')
+exec('n8n');
 import makeWASocket, { 
     useMultiFileAuthState, 
     downloadContentFromMessage, 
