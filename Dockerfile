@@ -1,23 +1,20 @@
-# 1. Usamos la imagen de n8n (que ya tiene Node.js y todo lo básico)
+# 1. Usamos n8n como base
 FROM n8nio/n8n:latest
 
 USER root
 
-# 2. Saltamos la instalación de herramientas de sistema para evitar errores de compatibilidad
-# n8n ya viene preparado para lo básico.
-
-# 3. Carpeta de trabajo
+# 2. Carpeta de trabajo
 WORKDIR /home/node/app
 
-# 4. Copiamos tus archivos de CARBAO
+# 3. Copiamos tus archivos de CARBAO
 COPY . .
 
-# 5. Instalamos solo las librerías de tu receptor (Baileys, Axios, etc.)
+# 4. Instalamos las librerías del receptor
 RUN npm install
 
-# 6. Puerto de Render
+# 5. Puerto de Render
 ENV N8N_PORT=10000
 EXPOSE 10000
 
-# 7. Arrancamos n8n y tu script
-CMD n8n & node index_receptor.js
+# 6. Lanzamos n8n en segundo plano y luego el receptor
+ENTRYPOINT ["/usr/local/bin/node", "index_receptor.js"]
