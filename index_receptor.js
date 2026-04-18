@@ -67,7 +67,7 @@ async function startReceptor() {
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
-    const sock = makeWASocket.default({
+    const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
