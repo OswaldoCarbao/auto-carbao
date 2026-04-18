@@ -9,23 +9,55 @@ import makeWASocket, {
 import fs from 'fs';
 import axios from 'axios';
 import pino from 'pino';
-import qrcode from 'qrcode-terminal';
+import qrcodeTerminal from 'qrcode-terminal'; // Renombrado para evitar conflicto
+import QRCodeImage from 'qrcode'; // Librería para generar el link web
 import { Boom } from '@hapi/boom';
 
-// --- 1. CONFIGURACIÓN DEL SERVIDOR DE SALUD (Para Render) ---
+// --- 1. CONFIGURACIÓN DEL SERVIDOR Y RUTA QR ---
 const app = express();
 const port = process.env.PORT || 10000;
+let ultimoQR = ""; // Aquí guardaremos el string del QR
 
-app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀'));
+app.get('/', (req, res) => res.send('Sistema CARBAO Activo 🚀 - Revisa /qr para vincular'));
+
+// NUEVA RUTA: Para ver el QR como imagen y poder escanearlo fácil
+app.get('/qr', async (req, res) => {
+    if (!ultimoQR) {
+        return res.send(`
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+                <h2>El QR aún no se ha generado o ya estás conectado.</h2>
+                <p>Si no estás conectado, espera unos segundos y refresca la página.</p>
+                <script>setTimeout(() => location.reload(), 5000);</script>
+            </body>
+        `);
+    }
+    
+    try {
+        const qrImage = await QRCodeImage.toDataURL(ultimoQR);
+        res.send(`
+            <html>
+                <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f2f5;font-family:sans-serif;">
+                    <div style="background:white;padding:30px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);text-align:center;">
+                        <h2 style="color:#1a73e8;">Vincular WhatsApp CARBAO</h2>
+                        <img src="${qrImage}" style="width:300px;height:300px;border:1px solid #ddd;padding:10px;border-radius:10px;">
+                        <p style="color:#555;margin-top:15px;">Abre WhatsApp > Dispositivos vinculados > Vincular.</p>
+                        <p style="font-size:12px;color:#999;">Esta página se refresca cada 20 segundos</p>
+                    </div>
+                    <script>setTimeout(() => location.reload(), 20000);</script>
+                </body>
+            </html>
+        `);
+    } catch (err) {
+        res.status(500).send("Error generando imagen QR");
+    }
+});
 
 app.listen(port, '0.0.0.0', () => {
     console.log(`✅ Servidor de salud escuchando en puerto ${port}`);
-    
-    // Una vez que el servidor de Render está feliz, arrancamos n8n y WhatsApp
     iniciarTodo();
 });
 
-// --- 2. LÓGICA DE ARRANQUE EN PARALELO ---
+// --- 2. LÓGICA DE ARRANQUE ---
 function iniciarTodo() {
     console.log("🚀 Iniciando n8n en segundo plano...");
     exec('n8n start', (err, stdout, stderr) => {
@@ -39,7 +71,7 @@ function iniciarTodo() {
 // --- 3. CONFIGURACIÓN WHATSAPP ---
 const ID_GRUPO = '120363361803863216@g.us';
 const PROCESADOS_FILE = './DATA/procesados.json';
-const N8N_WEBHOOK = 'http://localhost:10001/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e'; // OJO: puerto 10001 si n8n corre ahí
+const N8N_WEBHOOK = 'http://localhost:10001/webhook/071685b6-7efd-4353-9b9e-ce4594fd164e';
 
 if (!fs.existsSync('./DATA')) fs.mkdirSync('./DATA');
 
@@ -128,11 +160,18 @@ async function startReceptor() {
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
+        
         if (qr) {
-            console.log('⚠️ [AVISO] ESCANEA EL QR EN LOS LOGS:');
-            qrcode.generate(qr, { small: true });
+            ultimoQR = qr; // Guardamos el QR para la ruta web
+            console.log('⚠️ [AVISO] Nuevo QR generado. Míralo en: https://auto-carbao.onrender.com/qr');
+            qrcodeTerminal.generate(qr, { small: true });
         }
-        if (connection === 'open') console.log('✅ [WHATSAPP] Conectado y listo.');
+
+        if (connection === 'open') {
+            ultimoQR = ""; // Limpiamos el QR al conectar
+            console.log('✅ [WHATSAPP] Conectado y listo.');
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (new Boom(lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) setTimeout(startReceptor, 5000);
