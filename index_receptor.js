@@ -1,6 +1,6 @@
 ﻿import makeWASocket, { 
-     import { exec } from 'child_process';
-exec('n8n'); // Esto arranca n8n desde adentro de tu código de Node
+const { exec } = require('child_process');
+exec('n8n');
     useMultiFileAuthState, 
     downloadContentFromMessage, 
     fetchLatestBaileysVersion,
